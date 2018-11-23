@@ -20,7 +20,7 @@ BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 # See https://docs.djangoproject.com/en/2.1/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'v$6ooi6%02pg)sel#iw7b2em9swe&smd9c53t+p1#b45^ht!+_'
+SECRET_KEY = 'kp8ae&@ry4jk%j*bj-!h*syh*+r)ssc7qkrmeph)5$70(xrz_x'
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
@@ -37,6 +37,11 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'rest_framework',
+    'rest_framework.authtoken',
+    'auth_',
+    'main',
+    'django_extensions',
 ]
 
 MIDDLEWARE = [
@@ -75,12 +80,12 @@ WSGI_APPLICATION = 'salon_kz.wsgi.application'
 
 DATABASES = {
     'default': {
-        'ENGINE': 'django.db.backends.postgresql',
+        'ENGINE': 'django.db.backends.postgresql_psycopg2',
         'NAME': 'salon_kz',
-        'USER': 'sedi',
-        'PASSWORD': 'sedi',
-        'HOST': '127.0.0.1',
-        'PORT': '5432',
+        'USER' : 'sedi',
+        'PASSWORD' : 'sedi',
+        'HOST' : '127.0.0.1',
+        'PORT' : '5432',
     }
 }
 
@@ -122,3 +127,17 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/2.1/howto/static-files/
 
 STATIC_URL = '/static/'
+
+
+REST_FRAMEWORK = {
+    'DEFAULT_AUTHENTICATION_CLASSES': (
+       'rest_framework.authentication.TokenAuthentication',
+   ),
+   
+}
+
+AUTH_USER_MODEL = 'main.CustomUser'
+
+AUTHENTICATION_BACKENDS = (
+        'django.contrib.auth.backends.ModelBackend',
+    )

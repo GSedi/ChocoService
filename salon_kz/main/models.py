@@ -1,7 +1,8 @@
 from django.db import models
 from django.contrib.auth.models import BaseUserManager, AbstractBaseUser, PermissionsMixin, AbstractUser
-from main.constants import USER_TYPES, CLIENT, ORDER_FLAGS, NEW_ORDER, TIMES
+from main.constants import USER_TYPES, CLIENT, ORDER_FLAGS, NEW_ORDER
 from datetime import datetime
+from django.contrib.postgres.fields import ArrayField
 
 class CustomUserManager(BaseUserManager):
 
@@ -58,4 +59,131 @@ class CustomUser(AbstractBaseUser, PermissionsMixin):
 
     def __str__(self):
         return self.username
+
+class Country(models.Model):
+    name = models.CharField(max_length=50)
+
+    class Meta:
+        verbose_name = 'Country'
+        verbose_name_plural = 'Countries'
     
+    def __str__(self):
+        return self.name
+    
+
+class City(models.Model):
+    name = models.CharField(max_length=50)
+    country = models.ForeignKey(Country, on_delete=models.CASCADE)
+
+    class Meta:
+        verbose_name = 'City'
+        verbose_name_plural = 'Cities'
+    
+    def __str__(self):
+        return self.name
+
+
+class Client(models.Model):
+    user = models.OneToOneField(CustomUser, on_delete=models.CASCADE, related_name='client')    
+
+    def __str__(self):
+        return self.user.__str__()
+    
+
+class Partner(models.Model):
+    user = models.OneToOneField(CustomUser, on_delete=models.CASCADE, related_name='partner')
+
+    def __str__(self):
+        return self.user.__str__()
+
+class Salon(models.Model):
+    name = models.CharField(max_length=50)
+    telephone = models.CharField(max_length=12,null=True)
+    address = models.CharField( max_length=250, default=None, null=True)
+    partner = models.ForeignKey(Partner, on_delete=models.CASCADE, related_name='salons')
+    is_aproved = models.BooleanField(default=False)
+    card_number = models.CharField(max_length=16)
+    work_start = models.TimeField(auto_now_add=True)
+    work_end = models.TimeField(auto_now_add=True)
+
+    def __str__(self):
+        return self.name
+
+
+class Service(models.Model):
+    name = models.CharField(max_length=100)
+    salon = models.ForeignKey(Salon, on_delete=models.CASCADE, related_name='salon_services')
+
+    class Meta:
+        verbose_name = 'Service'
+        verbose_name_plural = 'Services'
+    
+    def __str__(self):
+        return self.name
+
+class Master(models.Model):
+    user = models.OneToOneField(CustomUser, on_delete=models.CASCADE, related_name='master')
+    salon = models.ForeignKey(Salon, on_delete=models.CASCADE, related_name='masters', null=True, blank=True)
+    is_aproved = models.BooleanField(default=False)
+
+    def __str__(self):
+        return self.user.__str__()
+
+
+class MasterService(models.Model):
+    name = models.CharField(max_length=50)
+    price = models.IntegerField()
+    master = models.ForeignKey(Master, on_delete=models.CASCADE, related_name='service_masters')
+    service = models.ForeignKey(Service, on_delete=models.CASCADE, related_name='master_services')
+    salon = models.ForeignKey(Salon, on_delete=models.CASCADE, related_name='salon_master_services', null=True, blank=True)
+
+    def __str__(self):
+        return self.name
+
+
+class Order(models.Model):
+    date_time_created = models.DateTimeField(auto_now_add=True)
+    date = models.DateField(default=datetime.today)
+    time = models.TimeField()
+    master_service = models.ForeignKey(MasterService, on_delete=models.CASCADE, related_name='order_price')
+    client = models.ForeignKey(Client, on_delete=models.CASCADE, related_name='client_orders')
+    flag = models.CharField(choices=ORDER_FLAGS, default=NEW_ORDER, max_length=50)
+    partner = models.ForeignKey(Partner, on_delete=models.CASCADE, related_name='partner_orders')
+
+    def __str__(self):
+        return self.master_service.__str__()
+
+class Comment(models.Model):
+    owner = models.ForeignKey(CustomUser, on_delete=models.CASCADE, related_name='comment_owners')
+
+    text = models.TextField()
+    salon = models.ForeignKey(Salon, on_delete=models.CASCADE, related_name='salon_comments')
+
+    def __str__(self):
+        return self.text
+
+
+class Rating(models.Model):
+    rate = models.IntegerField()
+    owner = models.ForeignKey(CustomUser, on_delete=models.CASCADE, related_name='rating_owners')
+
+    def __str__(self):
+        return  self.owner.__str__ + str(self.rate)
+
+class ClientRating(Rating):
+    client = models.ForeignKey(Client, on_delete=models.CASCADE, related_name='client_ratings')
+
+    def __str__(self):
+        return super().__str__()
+
+class SalonRating(Rating):
+    salon = models.ForeignKey(Salon, on_delete=models.CASCADE, related_name='salon_ratings')
+
+    def __str__(self):
+        return super().__str__()
+
+class MasterRating(Rating):
+    master = models.ForeignKey(Master, on_delete=models.CASCADE, related_name='master_ratings')
+
+    def __str__(self):
+        return super().__str__()
