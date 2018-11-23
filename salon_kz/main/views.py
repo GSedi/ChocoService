@@ -25,6 +25,8 @@ class ClientList(generics.ListAPIView):
     queryset = models.Client.objects.all()
     serializer_class = serializers.ClientSerializer
     # permission_classes = (IsAdminUser, )
+
+
             
         
 class ClientDetail(generics.RetrieveUpdateDestroyAPIView):
@@ -309,16 +311,9 @@ class CommentList(generics.ListCreateAPIView):
     lookup_field = 'salon_id'
 
     def perform_create(self, serializer):
-        user = self.request.user
-        if user.user_type == CLIENT:
-            client = models.Client.objects.get(user=self.request.user)
-        elif user.user_type == PARTNER:
-            partner = models.Partner.objects.get(user=self.request.user)
-        elif user.user_type == MASTER:
-            master = models.Master.objects.get(user=self.request.user)
-        
+        owner = self.request.user        
         salon = models.Salon.objects.get(pk=self.kwargs[self.lookup_field])
-        return serializer.save(client=client, salon=salon, master=master, partner=partner)
+        return serializer.save(owner=owner, salon=salon)
 
     def get_queryset(self):
         salon = models.Salon.objects.get(pk=self.kwargs[self.lookup_field])
@@ -330,41 +325,47 @@ class CommentDetail(generics.RetrieveUpdateDestroyAPIView):
     serializer_class = serializers.CommentSerializer
 
 
-class SetClienRating(generics.UpdateAPIView):
-    queryset = models.Client.objects.all()
-    serializer_class = serializers.ClientSerializerUpdate
+class SetClientRating(generics.CreateAPIView):
+    queryset = models.ClientRating.objects.all()
+    serializers_class = serializers.ClientRatingSerializer
 
-    def put(self, request, *args, **kwargs):
-        client = self.get_object()
-        client.summ += int( self.request.data.get('mean'))
-        client.cnt += 1
-        client.mean =  client.summ/client.cnt
-        client.mean = round(client.mean, 1)
+    def create(self, request, *args, **kwargs):
+        client = models.Client.objects.get(pk=self.kwargs[self.lookup_field])
+        rate = int(request.data.get('rate'))
+        serializer = serializers.ClientRatingSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        rating = models.ClientRating(client=client, rate=rate, owner = request.user)
+        rating.save()
         client.save()
-        return Response({})
+        headers = self.get_success_headers(serializer.data)
+        return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
 
-class SetSalonRating(generics.UpdateAPIView):
-    queryset = models.Salon.objects.all()
-    serializer_class = serializers.SalonSerializerUpdate
+class SetMasterRating(generics.CreateAPIView):
+    queryset = models.MasterRating.objects.all()
+    serializers_class = serializers.MasterRatingSerializer
 
-    def put(self, request, *args, **kwargs):
-        salon = self.get_object()
-        salon.summ += int( self.request.data.get('mean'))
-        salon.cnt += 1
-        salon.mean =  salon.summ/salon.cnt
-        salon.mean = round(salon.mean, 1)
-        salon.save()
-        return Response({})
-
-class SetMasterRating(generics.UpdateAPIView):
-    queryset = models.Master.objects.all()
-    serializer_class = serializers.MasterSerializerUpdate
-
-    def put(self, request, *args, **kwargs):
-        master = self.get_object()
-        master.summ += int( self.request.data.get('mean'))
-        master.cnt += 1
-        master.mean =  master.summ/master.cnt
-        master.mean = round(master.mean, 1)
+    def create(self, request, *args, **kwargs):
+        master = models.Master.objects.get(pk=self.kwargs[self.lookup_field])
+        rate = int(request.data.get('rate'))
+        serializer = serializers.MasterRatingSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        rating = models.MasterRating(master=master, rate=rate, owner = request.user)
+        rating.save()
         master.save()
-        return Response({})
+        headers = self.get_success_headers(serializer.data)
+        return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
+
+class SetSalonRating(generics.CreateAPIView):
+    queryset = models.SalonRating.objects.all()
+    serializers_class = serializers.SalonRatingSerializer
+
+    def create(self, request, *args, **kwargs):
+        salon = models.Salon.objects.get(pk=self.kwargs[self.lookup_field])
+        rate = int(request.data.get('rate'))
+        serializer = serializers.SalonRatingSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        rating = models.SalonRating(salon=salon, rate=rate, owner = request.user)
+        rating.save()
+        salon.save()
+        headers = self.get_success_headers(serializer.data)
+        return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)

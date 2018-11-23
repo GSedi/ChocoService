@@ -151,6 +151,7 @@ class ClientRatingSerializer(RatingSerializer):
     class Meta:
         model = models.ClientRating
         fields = '__all__'
+    
 
 class SalonRatingSerializer(RatingSerializer):
     salon = SalonSerializer(read_only=True)

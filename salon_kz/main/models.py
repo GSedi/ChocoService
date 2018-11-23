@@ -85,9 +85,24 @@ class City(models.Model):
 
 class Client(models.Model):
     user = models.OneToOneField(CustomUser, on_delete=models.CASCADE, related_name='client')    
+    rating = models.FloatField()
 
     def __str__(self):
         return self.user.__str__()
+
+    def calc_rating(self):
+        cnt = self.client_ratings.all().count()
+        summ = sum([i.rate for i in self.client_ratings.all()])
+        print('sdfokasjfsndfiousndfuoaisdfnaiosdfiasf', summ)
+        if summ != 0 and cnt != 0:
+            return summ/cnt
+        else:
+            return 5
+    
+    def save(self, *args, **kwargs):
+        self.rating = self.calc_rating()
+        super(Client, self).save(*args, **kwargs) # Call the real save() method
+
     
 
 class Partner(models.Model):
@@ -105,6 +120,19 @@ class Salon(models.Model):
     card_number = models.CharField(max_length=16)
     work_start = models.TimeField(auto_now_add=True)
     work_end = models.TimeField(auto_now_add=True)
+    rating = models.FloatField(default=5)
+
+    def calc_rating(self):
+        cnt = self.salon_ratings.all().count()
+        summ = sum([i.rate for i in self.salon_ratings.all()])
+        if summ != 0 and cnt != 0:
+            return summ/cnt
+        else:
+            return 5
+    
+    def save(self, *args, **kwargs):
+        self.rating = self.calc_rating()
+        super(Salon, self).save(*args, **kwargs) # Call the real save() method
 
     def __str__(self):
         return self.name
@@ -125,6 +153,19 @@ class Master(models.Model):
     user = models.OneToOneField(CustomUser, on_delete=models.CASCADE, related_name='master')
     salon = models.ForeignKey(Salon, on_delete=models.CASCADE, related_name='masters', null=True, blank=True)
     is_aproved = models.BooleanField(default=False)
+    rating = models.FloatField(default=5)
+
+    def calc_rating(self):
+        cnt = self.partner_ratings.all().count()
+        summ = sum([i.rate for i in self.partner_ratings.all()])
+        if summ != 0 and cnt != 0:
+            return summ/cnt
+        else:
+            return 5
+    
+    def save(self, *args, **kwargs):
+        self.rating = self.calc_rating()
+        super(Master, self).save(*args, **kwargs) # Call the real save() method
 
     def __str__(self):
         return self.user.__str__()

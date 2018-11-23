@@ -40,9 +40,9 @@ urlpatterns = [
     path('comments/<int:pk>/', views.CommentDetail.as_view(), name='comment_detail'),
 
     path('masters/<int:pk>/rate/', views.SetMasterRating.as_view()),
-    path('clients/<int:pk>/rate/', views.SetClienRating.as_view()),
+    path('clients/<int:pk>/rate/', views.SetClientRating.as_view()),
     path('salons/<int:pk>/rate/', views.SetSalonRating.as_view()),
-
+    # path('clients/<int:pk>/rate/', views.ClientRatingList.as_view()),
     # path('update-flag/<int:pk>/', views.UpdateOrderFlag.as_view(), name='update_flag'),
     # path('update-master-time/<int:pk>/', views.update_master_time, name='update_master_time'),
 ]
