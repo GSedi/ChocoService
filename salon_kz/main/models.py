@@ -63,6 +63,8 @@ class CustomUser(AbstractBaseUser, PermissionsMixin):
 class Country(models.Model):
     name = models.CharField(max_length=50)
 
+    objects = models.Manager()
+
     class Meta:
         verbose_name = 'Country'
         verbose_name_plural = 'Countries'
@@ -118,8 +120,8 @@ class Salon(models.Model):
     partner = models.ForeignKey(Partner, on_delete=models.CASCADE, related_name='salons')
     is_aproved = models.BooleanField(default=False)
     card_number = models.CharField(max_length=16)
-    work_start = models.TimeField(auto_now_add=True)
-    work_end = models.TimeField(auto_now_add=True)
+    work_start = models.TimeField(auto_now_add=False, auto_now=False)
+    work_end = models.TimeField(auto_now_add=False, auto_now=False)
     rating = models.FloatField(default=5)
 
     def calc_rating(self):
@@ -132,7 +134,7 @@ class Salon(models.Model):
     
     def save(self, *args, **kwargs):
         self.rating = self.calc_rating()
-        super(Salon, self).save(*args, **kwargs) # Call the real save() method
+        super(Salon, self).save(*args, **kwargs) 
 
     def __str__(self):
         return self.name
@@ -156,8 +158,8 @@ class Master(models.Model):
     rating = models.FloatField(default=5)
 
     def calc_rating(self):
-        cnt = self.partner_ratings.all().count()
-        summ = sum([i.rate for i in self.partner_ratings.all()])
+        cnt = self.master_ratings.all().count()
+        summ = sum([i.rate for i in self.master_ratings.all()])
         if summ != 0 and cnt != 0:
             return summ/cnt
         else:
@@ -165,7 +167,7 @@ class Master(models.Model):
     
     def save(self, *args, **kwargs):
         self.rating = self.calc_rating()
-        super(Master, self).save(*args, **kwargs) # Call the real save() method
+        super(Master, self).save(*args, **kwargs) 
 
     def __str__(self):
         return self.user.__str__()
@@ -180,6 +182,8 @@ class MasterService(models.Model):
 
     def __str__(self):
         return self.name
+
+
 
 
 class Order(models.Model):

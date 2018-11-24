@@ -1,38 +1,105 @@
 from main import models
 from main import serializers
 from rest_framework import generics
-from rest_framework.permissions import IsAuthenticated, IsAdminUser
+from rest_framework.permissions import IsAuthenticated, IsAdminUser, BasePermission
 from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.views import APIView
 from main.constants import CLIENT, MASTER, PARTNER, USER_TYPES
 
-class IsBasePartner(IsAuthenticated):
+
+class IsBasePartner(BasePermission):
     def has_permission(self, request, view):
-        return request.user and request.user.user_type == 'partner' and request.user.partner == view.get_object()
+        if 'partner_id' in view.kwargs:
+            partner = models.Partner.objects.get(pk=view.kwargs['partner_id'])
+        elif 'salon_id' in view.kwargs:
+            salon = models.Salon.objects.get(pk=view.kwargs['salon_id'])
+            partner = salon.partner
+        elif IsClient:
+            return True
+        else:
+            partner = models.Partner.objects.get(pk=view.kwargs['pk'])
+        return request.user and request.user.user_type == 'partner' and request.user.partner == partner
 
 class IsBaseClient(IsAuthenticated):
+    # def has_object_permission(self, request, view, obj):
+    #     return request.user and request.user.user_type == 'client' and request.user.client == obj
+
     def has_permission(self, request, view):
-        return request.user and request.user.user_type == 'client' and request.user.client == view.get_object()
+        client = models.Client.objects.get(pk=view.kwargs['pk'])
+        return request.user and request.user.user_type == 'client' and request.user.client == client
+
+class IsOwnerClient(BasePermission):
+    def has_permission(self, request, view):
+        if type(view) == OrderDetail:
+            order = models.Order.objects.get(pk=view.kwargs['pk'])
+            client = order.client
+        
+        return request.user and request.user.user_type == 'client' and request.user.client == client
 
 class IsClient(IsAuthenticated):
     def has_permission(self, request, view):
         return request.user and request.user.user_type == 'client'
 
+class IsPartner(BasePermission):
+    def has_permission(self, request, view):
+        return request.user and request.user.user_type == 'partner'
 
-class ClientList(generics.ListAPIView):
+class IsOwnerPartner(BasePermission):
+    def has_permission(self, request, view):
+        if type(view) == SalonDetail:
+            salon = models.Salon.objects.get(pk=view.kwargs['pk'])
+            partner = salon.partner
+        elif type(view) == ServiceDetail:
+            service = models.Service.objects.get(pk=view.kwargs['pk'])
+            salon = service.salon
+            partner = salon.partner
+        elif type(view) == MasterDetail:
+            master = models.Master.objects.get(pk=view.kwargs['pk'])
+            salon = master.salon
+            partner = salon.partner
+        elif type(view) == MasterServiceDetail:
+            master_service = models.MasterService.objects.get(pk=view.kwargs['pk'])
+            salon = master_service.salon
+            partner = salon.partner
+        elif type(view) == OrderDetail:
+            order = models.Order.objects.get(pk=view.kwargs['pk'])
+            partner = order.partner
+
+        return request.user and request.user.user_type == 'partner' and request.user.partner == partner
+        
+class IsBaseMaster(BasePermission):
+    def has_permission(self, request, view):
+        if 'salon-id' is view.kwargs:
+            salon = models.Salon.objects.get(pk=view.kwargs['salon_id'])
+            return request.user and request.user.user_type == 'master' and salon.masters.get(master=request.user.master) != None
+        master = models.Master.objects.get(pk=view.kwargs['pk'])
+        return request.user and request.user.user_type == 'master' and request.user.master == master
+
+class IsOwnerMaster(BasePermission):
+    def has_permission(self, request, view):
+        if type(view) == MasterServiceDetail:
+            master_service = models.MasterService.objects.get(pk=view.kwargs['pk'])
+            master = master_service.master
+        
+        print(master)
+        return request.user and request.user.user_type == 'master' and request.user.master == master
+    
+class IsMaster(IsAuthenticated):
+    def has_permission(self, request, view):
+        return request.user and request.user.user_type == 'master'
+
+
+class ClientList(generics.ListCreateAPIView):
     queryset = models.Client.objects.all()
     serializer_class = serializers.ClientSerializer
-    # permission_classes = (IsAdminUser, )
-
-
-            
-        
+    permission_classes = (IsAdminUser, )
+      
 class ClientDetail(generics.RetrieveUpdateDestroyAPIView):
     queryset = models.Client.objects.all()
     serializer_class = serializers.ClientSerializer
-    # permission_classes = (IsAdminUser, IsBaseClient)
+    permission_classes = (IsBaseClient|IsAdminUser,)
 
     def destroy(self, request, *args, **kwargs):
         request.user.is_active = False
@@ -41,15 +108,15 @@ class ClientDetail(generics.RetrieveUpdateDestroyAPIView):
 
     
 
-class PartnerList(generics.ListAPIView):
+class PartnerList(generics.ListCreateAPIView):
     queryset = models.Partner.objects.all()
     serializer_class = serializers.PartnerSerializer
-    # permission_classes = (IsAdminUser, )
+    permission_classes = (IsAdminUser, )
         
 class PartnerDetail(generics.RetrieveUpdateDestroyAPIView):
     queryset = models.Partner.objects.all()
     serializer_class = serializers.PartnerSerializer
-    # permission_classes = (IsBasePartner, )
+    permission_classes = (IsBasePartner|IsAdminUser, )
 
     def destroy(self, request, *args, **kwargs):
         request.user.is_active = False
@@ -60,7 +127,15 @@ class PartnerDetail(generics.RetrieveUpdateDestroyAPIView):
 class SalonList(generics.ListCreateAPIView):
     queryset = models.Salon.objects.all()
     serializer_class = serializers.SalonSerializer
-    # permission_classes = (IsBasePartner|IsClient)
+
+    def get_permissions(self):
+        if self.request.method == 'GET':    
+            self.permission_classes = (IsAdminUser|IsClient|IsBasePartner,)
+        else:
+            self.permission_classes = (IsAdminUser|IsPartner,)
+        
+        return super(self.__class__, self).get_permissions()
+
     def get_queryset(self):
         queryset = models.Salon.objects.all()
         if 'partner_id' in self.kwargs:
@@ -77,6 +152,14 @@ class SalonList(generics.ListCreateAPIView):
 class SalonDetail(generics.RetrieveUpdateDestroyAPIView):
     queryset = models.Salon.objects.all()
     serializer_class = serializers.SalonSerializer
+    
+    def get_permissions(self):
+        if self.request.method == 'GET':    
+            self.permission_classes = (IsAdminUser|IsClient|IsOwnerPartner,)
+        else:
+            self.permission_classes = (IsAdminUser|IsOwnerPartner,)
+        
+        return super(self.__class__, self).get_permissions()
 
 
 class ServiceList(generics.ListCreateAPIView):
@@ -84,6 +167,12 @@ class ServiceList(generics.ListCreateAPIView):
     serializer_class = serializers.ServiceSerializer
     lookup_field = 'salon_id'
 
+    def get_permissions(self):
+        if self.request.method == 'GET':
+            self.permission_classes = (IsAdminUser|IsClient|IsBasePartner, )
+        else:
+            self.permission_classes = (IsAdminUser|IsBasePartner,)
+        return super(self.__class__, self).get_permissions()
 
     def list(self, request, *args, **kwargs):
         salon = models.Salon.objects.get(pk=self.kwargs[self.lookup_field])
@@ -117,6 +206,12 @@ class ServiceDetail(generics.RetrieveUpdateDestroyAPIView):
     queryset = models.Service.objects.all()
     serializer_class = serializers.ServiceSerializer
 
+    def get_permissions(self):
+        if self.request.method == 'GET':
+            self.permission_classes = (IsAdminUser|IsClient|IsOwnerPartner, )
+        else:
+            self.permission_classes = (IsAdminUser|IsOwnerPartner)
+        return super(self.__class__, self).get_permissions()
 
 
 
@@ -124,6 +219,13 @@ class MasterList(generics.ListCreateAPIView):
     queryset = models.Master.objects.all()
     serializer_class = serializers.MasterSerializer
     lookup_field = 'salon_id'
+
+    def get_permissions(self):
+        if self.request.method == 'GET':
+            self.permission_classes = (IsAdminUser|IsClient|IsBasePartner, )
+        else:
+            self.permission_classes = (IsAdminUser|IsBasePartner,)
+        return super(self.__class__, self).get_permissions()
 
     def list(self, request, *args, **kwargs):
         salon = models.Salon.objects.get(pk=self.kwargs[self.lookup_field])
@@ -136,20 +238,34 @@ class MasterList(generics.ListCreateAPIView):
         serializer = self.get_serializer(queryset, many=True)
         return Response(serializer.data)
     
-    def destroy(self, request, *args, **kwargs):
-        request.user.is_active = False
-        request.user.save()
-        return super().destroy(request, *args, **kwargs)
 
 class MasterDetail(generics.RetrieveUpdateDestroyAPIView):
     queryset = models.Master.objects.all()
     serializer_class = serializers.MasterSerializer
 
+    def get_permissions(self):
+        if self.request.method == 'GET':
+            self.permission_classes = (IsAdminUser|IsClient|IsOwnerPartner|IsBaseMaster, )
+        else:
+            self.permission_classes = (IsAdminUser|IsOwnerPartner|IsBaseMaster)
+        return super(self.__class__, self).get_permissions()
+
+    def destroy(self, request, *args, **kwargs):
+        request.user.is_active = False
+        request.user.save()
+        return super().destroy(request, *args, **kwargs)
 
 class MasterServiceList(generics.ListCreateAPIView):
     queryset = models.MasterService.objects.all()
     serializer_class = serializers.MasterServiceSerializer
     lookup_field = 'salon_id'
+
+    def get_permissions(self):
+        if self.request.method == 'GET':
+            self.permission_classes = (IsAdminUser|IsClient, )
+        else:
+            self.permission_classes = (IsAdminUser|IsBasePartner,)
+        return super(self.__class__, self).get_permissions()
  
     def post(self, request, *args, **kwargs):
         master_id = int(request.data.pop('master_id'))
@@ -173,6 +289,14 @@ class MasterServiceDetail(generics.RetrieveUpdateDestroyAPIView):
     serializer_class = serializers.MasterServiceSerializer
     permission_classes = (IsAuthenticated, )
 
+    def get_permissions(self):
+        if self.request.method == 'GET':
+            self.permission_classes = (IsAdminUser|IsClient|IsOwnerPartner|IsOwnerMaster, )
+        else:
+            self.permission_classes = (IsAdminUser|IsOwnerPartner,)
+        return super(self.__class__, self).get_permissions()
+
+
 class CustomMasterServiceList(generics.ListAPIView):
     serializer_class = serializers.MasterServiceSerializer
     queryset = models.MasterService.objects.all()
@@ -194,7 +318,8 @@ class CustomMasterServiceList(generics.ListAPIView):
 class OrderCreate(generics.CreateAPIView):
     queryset = models.Order.objects.all()
     serializer_class = serializers.OrderSerializer
-    
+    permission_classes = (IsAdminUser|IsClient,)
+
     def post(self, request, *args, **kwargs):
         master_service_id = int(request.data.pop('master_service_id'))
         master_service = models.MasterService.objects.get(pk=master_service_id)
@@ -211,6 +336,16 @@ class OrderCreate(generics.CreateAPIView):
 class OrderDetail(generics.RetrieveUpdateDestroyAPIView):
     queryset = models.Order.objects.all()
     serializer_class = serializers.OrderSerializer
+
+    def get_permissions(self):
+        if self.request.method == 'GET':
+            self.permission_classes = (IsAdminUser|IsOwnerClient|IsOwnerPartner, )
+        elif self.request.method == 'UPDATE':
+            self.permission_classes = (IsAdminUser|IsOwnerPartner,)
+        else:
+            self.permission_classes = (IsAdminUser,)
+        return super(self.__class__, self).get_permissions()
+
 
 
 class OrderList(generics.ListAPIView):
@@ -323,11 +458,14 @@ class CommentList(generics.ListCreateAPIView):
 class CommentDetail(generics.RetrieveUpdateDestroyAPIView):
     queryset = models.Comment.objects.all()
     serializer_class = serializers.CommentSerializer
+    permission_classes = (IsAdminUser,)
+    
 
 
 class SetClientRating(generics.CreateAPIView):
     queryset = models.ClientRating.objects.all()
     serializers_class = serializers.ClientRatingSerializer
+    permission_classes = (IsAdminUser | IsPartner|IsMaster,)
 
     def create(self, request, *args, **kwargs):
         client = models.Client.objects.get(pk=self.kwargs[self.lookup_field])
@@ -343,6 +481,7 @@ class SetClientRating(generics.CreateAPIView):
 class SetMasterRating(generics.CreateAPIView):
     queryset = models.MasterRating.objects.all()
     serializers_class = serializers.MasterRatingSerializer
+    permission_classes = (IsAdminUser | IsClient,)
 
     def create(self, request, *args, **kwargs):
         master = models.Master.objects.get(pk=self.kwargs[self.lookup_field])
@@ -358,6 +497,7 @@ class SetMasterRating(generics.CreateAPIView):
 class SetSalonRating(generics.CreateAPIView):
     queryset = models.SalonRating.objects.all()
     serializers_class = serializers.SalonRatingSerializer
+    permission_classes = (IsAdminUser | IsClient,)
 
     def create(self, request, *args, **kwargs):
         salon = models.Salon.objects.get(pk=self.kwargs[self.lookup_field])

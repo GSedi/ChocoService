@@ -4,7 +4,7 @@ from rest_framework.response import Response
 from rest_framework.authtoken.models import Token
 from rest_framework import authentication
 from rest_framework import status
-from main.models import CustomUser, Client, Master, Partner
+from main.models import CustomUser, Client, Master, Partner, Salon
 from main.serializers import CustomUserSerializer
 from main.constants import CLIENT, MASTER, PARTNER, USER_TYPES
 
@@ -44,7 +44,7 @@ def register(request):
     if serializer.is_valid():
         user = serializer.save()
         user.set_password(serializer.data['password'])
-        user.save()
+        # user.save()
         token, _ = Token.objects.get_or_create(user=user)
         context = {
             'key': token.key,
@@ -54,7 +54,10 @@ def register(request):
             client.save()
             context['client_id'] = user.client.pk
         elif user.user_type == MASTER:
-            master = Master(user=user)
+            salon_id = int(request.data.get('salon_id'))
+            salon = Salon.objects.get(pk=salon_id)
+            master = Master(user=user, salon = salon)
+            user.save()
             master.save()
             context['master_id'] = user.master.pk
         elif user.user_type == PARTNER:
