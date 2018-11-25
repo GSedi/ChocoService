@@ -132,6 +132,7 @@ class OrderSerializer(serializers.ModelSerializer):
     class Meta:
         model = models.Order
         fields = '__all__'
+    
  
 class CommentSerializer(serializers.ModelSerializer):
     owner = CustomUserSerializer(read_only=True)

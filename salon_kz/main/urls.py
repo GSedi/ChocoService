@@ -31,9 +31,9 @@ urlpatterns = [
 
     path('partners/<int:partner_id>/salons/', views.SalonList.as_view()),
 
-    path('filter/', views.filter, name='filter_service_time'),
-    path('filter/', views.filter, name='salon_masters_free_filter'),
-    path('filter/', views.filter, name='master_filter'),
+    path('filter/', views.filter, name='filter'),
+    # path('filter/', views.filter, name='salon_masters_free_filter'),
+    # path('filter/', views.filter, name='master_filter'),
 
 
     path('salons/<int:salon_id>/comments/', views.CommentList.as_view(), name='comment_list'),
@@ -45,6 +45,9 @@ urlpatterns = [
     # path('clients/<int:pk>/rate/', views.ClientRatingList.as_view()),
     # path('update-flag/<int:pk>/', views.UpdateOrderFlag.as_view(), name='update_flag'),
     # path('update-master-time/<int:pk>/', views.update_master_time, name='update_master_time'),
+
+    path('master-shedule/<int:pk>/', views.get_master_shedule),
+    path('salon-filter/', views.SalonListView.as_view())
 ]
 
 

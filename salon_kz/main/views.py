@@ -7,6 +7,7 @@ from rest_framework import status
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.views import APIView
 from main.constants import CLIENT, MASTER, PARTNER, USER_TYPES
+from rest_framework import filters
 
 
 class IsBasePartner(BasePermission):
@@ -35,8 +36,9 @@ class IsOwnerClient(BasePermission):
         if type(view) == OrderDetail:
             order = models.Order.objects.get(pk=view.kwargs['pk'])
             client = order.client
-        
-        return request.user and request.user.user_type == 'client' and request.user.client == client
+        print('afsklmskldnfkjlasndfjnaskjfnasknfkjlasdnfkj')
+        # return request.user and request.user.user_type == 'client' and request.user.client == client
+        return True
 
 class IsClient(IsAuthenticated):
     def has_permission(self, request, view):
@@ -137,7 +139,7 @@ class SalonList(generics.ListCreateAPIView):
         return super(self.__class__, self).get_permissions()
 
     def get_queryset(self):
-        queryset = models.Salon.objects.all()
+        queryset = models.Salon.objects.all().order_by('-rating')
         if 'partner_id' in self.kwargs:
             partner_id = int(self.kwargs['partner_id'])
             partner = models.Partner.objects.get(pk=partner_id)
@@ -324,6 +326,15 @@ class OrderCreate(generics.CreateAPIView):
         master_service_id = int(request.data.pop('master_service_id'))
         master_service = models.MasterService.objects.get(pk=master_service_id)
         serializer = serializers.OrderSerializer(data=request.data)
+        master = master_service.master
+        master_services = master.service_masters.all()
+        date = request.data.get('date')
+        time = request.data.get('time')
+        for ms in master_services:
+            for order in ms.order_price.all():
+                # print(order.date, date)
+                if order.flag == 'new_order' and str(order.date) == date and str(order.time) == time:
+                    return Response({'error':'this time not free'}, status=status.HTTP_400_BAD_REQUEST)
         if serializer.is_valid():
             order = serializer.save(client=self.request.user.client, master_service=master_service, 
                                     partner=master_service.salon.partner,)
@@ -340,8 +351,8 @@ class OrderDetail(generics.RetrieveUpdateDestroyAPIView):
     def get_permissions(self):
         if self.request.method == 'GET':
             self.permission_classes = (IsAdminUser|IsOwnerClient|IsOwnerPartner, )
-        elif self.request.method == 'UPDATE':
-            self.permission_classes = (IsAdminUser|IsOwnerPartner,)
+        elif self.request.method == 'PUT':
+            self.permission_classes = (IsAdminUser|IsOwnerPartner|IsOwnerClient,)
         else:
             self.permission_classes = (IsAdminUser,)
         return super(self.__class__, self).get_permissions()
@@ -509,3 +520,33 @@ class SetSalonRating(generics.CreateAPIView):
         salon.save()
         headers = self.get_success_headers(serializer.data)
         return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
+
+@api_view(['GET'])
+def get_master_shedule(request, pk):
+    date = request.GET.get('date')
+    # print(date)
+    master_service = models.MasterService.objects.get(pk=pk)
+    master = master_service.master
+    master_services = master.service_masters.all()
+    orders = []
+    times = []
+    for ms in master_services:
+        for order in ms.order_price.all():
+            print(order.date, date)
+            if order.flag == 'new_order' and str(order.date) == date:
+                print('asfladsf;asdflasdf', order, order.time)
+                orders.append(order)
+                times.append(order.time)
+    
+    ser = serializers.OrderSerializer(orders, many=True)
+    context = {
+        'times': times
+    }
+    return Response(context, status=status.HTTP_200_OK)
+
+
+class SalonListView(generics.ListAPIView):
+    queryset = models.Salon.objects.all()
+    serializer_class = serializers.SalonSerializer
+    filter_backends = (filters.SearchFilter, )
+    search_fields = ('name',)
