@@ -11,7 +11,7 @@ django-guardian==1.4.9
 django-phonenumber-field==2.1.0
 django-ratings==0.3.7
 django-rest-auth==0.9.3
-djangorestframework==3.9.0
+djangorestframework==3.11.2
 djangorestframework-jwt==1.11.0
 idna==2.7
 isort==4.3.4
