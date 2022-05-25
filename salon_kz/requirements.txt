@@ -24,7 +24,7 @@ mccabe==0.6.1
 phonenumbers==8.9.16
 psycopg2==2.7.6.1
 pydotplus==2.0.2
-PyJWT==1.6.4
+PyJWT==2.4.0
 pylint==2.1.1
 pyparsing==2.3.0
 pytz==2018.7
